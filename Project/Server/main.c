@@ -4,12 +4,15 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <pthread.h>
+#include "heap_manager.h"
 
 #pragma comment(lib, "ws2_32.lib") // Linkovanje Winsock biblioteke
 
 #define SERVER_PORT 8080
 #define MAX_CLIENTS 10
 #define THREAD_POOL_SIZE 5
+
+HashMap* memory_map;
 
 // Struktura za zahtev
 typedef struct Request {
@@ -49,11 +52,15 @@ Request dequeue() {
 // Funkcija za obradu zahteva
 void process_request(Request req) {
     if (req.type == 1) { // Alokacija
-        printf("Obrada zahteva za alokaciju memorije: %zu bajtova\n", req.size);
-        // Dodajte logiku za alokaciju memorije ovde
+        Block* allocated_block = allocate_memory(memory_map, req.size);
+        if (allocated_block != NULL) {
+            printf("Memorija alocirana: %zu bajtova\n", allocated_block->size);
+        } else {
+            printf("Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
+        }
     } else if (req.type == 2) { // Dealokacija
-        printf("Obrada zahteva za dealokaciju memorije: ID bloka %d\n", req.block_id);
-        // Dodajte logiku za dealokaciju memorije ovde
+       free_memory(memory_map, req.block_id);
+        printf("Memorija sa ID %d je oslobodjena.\n", req.block_id);
     }
 }
 
@@ -124,6 +131,15 @@ int main() {
     WSADATA wsa;
     SOCKET server_fd;
     struct sockaddr_in server_addr;
+    // Kreiranje hash mape za upravljanje memorijom
+    memory_map = create_hashmap();
+
+    // Dodavanje nekoliko inicijalnih blokova (primer)
+    for (int i = 0; i < 10; i++) {
+        Block* block = create_block(1024 * (i + 1)); // Blokovi različitih veličina
+        add_block(memory_map, i, block);
+    }
+
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -179,6 +195,14 @@ int main() {
     // Ciscenje resursa
     closesocket(server_fd);
     WSACleanup();
+
+    for (int i = 0; i < 1000; i++) {
+    if (memory_map->blocks[i] != NULL) {
+        free(memory_map->blocks[i]);
+    }
+    }
+    free(memory_map);
+
 
     return 0;
 }
