@@ -12,17 +12,53 @@
 // Struktura za zahtev
 typedef struct Request {
     int type;           // Tip zahteva: 1 - alokacija, 2 - dealokacija
-    size_t size;        // Velièina za alokaciju (ako je tip 1)
+    size_t size;        // Veliï¿½ina za alokaciju (ako je tip 1)
     int block_id;       // ID bloka za dealokaciju (ako je tip 2)
 } Request;
 
 // Funkcija za slanje zahteva serveru
 void send_request(SOCKET sock, Request* req) {
     if (send(sock, (char*)req, sizeof(Request), 0) == SOCKET_ERROR) {
-        printf("Neuspešno slanje zahteva. Greška: %d\n", WSAGetLastError());
+        printf("Neuspesno slanje zahteva. Greska: %d\n", WSAGetLastError());
         exit(1);
     }
     printf("Zahtev poslat serveru.\n");
+}
+
+void menu(SOCKET socket){
+    do{
+    printf("\n\n****************************\n");
+    printf("1. Alociraj memoriju\n");
+    printf("2. Delociraj memoriju\n");
+    printf("0. Izlaz\n");
+    int action;
+    scanf("%d",&action);
+    Request req;
+    switch (action)
+    {
+    case 1:
+        printf("Unesi broj bajtova\n");
+        req.type=1;
+        int size;
+        scanf("%d",&size);
+        req.size=size;
+        send_request(socket,&req);
+        break;
+    case 2:
+        printf("Unesi pocetnu adresu\n");
+        req.type=2;
+        int block_id;
+        scanf("%d",&block_id);
+        req.block_id=block_id;
+        send_request(socket,&req);
+        break;
+    case 0:
+        printf("Izasli ste\n");
+        return;
+    default:
+        printf("Nevalidna komanda\n");
+        break;
+    }}while(1);
 }
 
 int main() {
@@ -32,13 +68,13 @@ int main() {
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        printf("Neuspešna inicijalizacija Winsock-a. Greška: %d\n", WSAGetLastError());
+        printf("Neuspesna inicijalizacija Winsock-a. Greska: %d\n", WSAGetLastError());
         return 1;
     }
 
     // Kreiranje soketa
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-        printf("Neuspešno kreiranje soketa. Greška: %d\n", WSAGetLastError());
+        printf("Neuspesno kreiranje soketa. Greska: %d\n", WSAGetLastError());
         WSACleanup();
         return 1;
     }
@@ -49,22 +85,14 @@ int main() {
 
     // Povezivanje na server
     if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        printf("Neuspešno povezivanje sa serverom. Greška: %d\n", WSAGetLastError());
+        printf("Neuspesno povezivanje sa serverom. Greska: %d\n", WSAGetLastError());
         closesocket(sock);
         WSACleanup();
         return 1;
     }
 
-    // Kreiranje i slanje zahteva za alokaciju memorije
-    Request req;
-    req.type = 1; // Alokacija
-    req.size = 100; // Alociraj 100 bajtova
-    send_request(sock, &req);
-
-    // Kreiranje i slanje zahteva za dealokaciju memorije
-    req.type = 2; // Dealokacija
-    req.block_id = 0; // ID bloka za dealokaciju
-    send_request(sock, &req);
+    printf("Uspesno ste se povezali");
+    menu(sock);
 
     // Zatvaranje soketa
     closesocket(sock);

@@ -13,11 +13,11 @@
 // Struktura za zahtev
 typedef struct Request {
     int type;           // Tip zahteva: 1 - alokacija, 2 - dealokacija
-    size_t size;        // Velièina za alokaciju (ako je tip 1)
+    size_t size;        // Velicina za alokaciju (ako je tip 1)
     int block_id;       // ID bloka za dealokaciju (ako je tip 2)
 } Request;
 
-// Red èekanja za zahteve
+// Red cekanja za zahteve
 Request request_queue[MAX_CLIENTS];
 int queue_front = 0;
 int queue_rear = 0;
@@ -51,14 +51,14 @@ void process_request(Request req) {
     }
 }
 
-// Funkcija koja obraðuje zahteve iz reda
+// Funkcija koja obradjuje zahteve iz reda
 void* process_requests(void* arg) {
     while (1) {
         if (queue_front != queue_rear) {
             Request req = dequeue();
             process_request(req);
         }
-        Sleep(100); // Pauza kako bi se izbeglo bespotrebno korišæenje CPU-a
+        Sleep(100); // Pauza kako bi se izbeglo bespotrebno koriscenje CPU-a
     }
 }
 
@@ -70,7 +70,7 @@ int main() {
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        printf("Neuspesna inicijalizacija Winsock-a. Greška: %d\n", WSAGetLastError());
+        printf("Neuspesna inicijalizacija Winsock-a. Greska: %d\n", WSAGetLastError());
         return 1;
     }
 
@@ -93,7 +93,7 @@ int main() {
         return 1;
     }
 
-    // Slušanje za klijente
+    // Slusanje za klijente
     if (listen(server_fd, 3) == SOCKET_ERROR) {
         printf("Neuspesno slusanje. Greska: %d\n", WSAGetLastError());
         closesocket(server_fd);
@@ -121,7 +121,7 @@ int main() {
         closesocket(client_socket); // Zatvaranje veze sa klijentom
     }
 
-    // Èišæenje resursa
+    // Ciscenje resursa
     closesocket(server_fd);
     WSACleanup();
 
