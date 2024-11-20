@@ -32,10 +32,10 @@ Block* allocate_memory(HashMap* hashmap, size_t size) {
             return hashmap->blocks[i];
         }
     }
-    return NULL; // Ako nije pronaðen odgovarajuæi blok
+    return NULL; // Ako nije pronadjen odgovarajuci blok
 }
 
-// Funkcija za oslobaðanje memorije
+// Funkcija za oslobadjanje memorije
 void free_memory(HashMap* hashmap, int key) {
     if (hashmap->blocks[key] != NULL) {
         hashmap->blocks[key]->is_allocated = 0;
