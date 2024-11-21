@@ -1,37 +1,49 @@
 #ifndef HEAP_MANAGER_H
 #define HEAP_MANAGER_H
 
-#include <stddef.h> 
+#include <stddef.h> // Za void* i size_t
 
-#define SEGMENT_SIZE 1000
-#define HASHMAP_SIZE 10
+#define SEGMENT_SIZE 1024
+#define HASHMAP_BUCKETS 10
+#define MAX_FREE_SEGMENTS 5
 
-// Struktura koja predstavlja memorijski blok
-typedef struct Block {
-    int size;          // Velicina bloka
-    int is_allocated;     // Status (1 - alociran, 0 - slobodan)
-    Block* next;
-} Block;
 
-// Struktura koja predstavlja hashmapu za cuvanje blokova
+// Struktura za segment
+typedef struct Segment {
+    int is_free;              // Da li je segment slobodan (1 = slobodan, 0 = zauzet)
+    size_t size;              // Velicina segmenta
+    void* address;            // Memorijska adresa
+    struct Segment* next;     // Sledeci segment u lancu
+} Segment;
+
+// Hes mapa za segmente
 typedef struct HashMap {
-    Block* blocks[HASHMAP_SIZE];  // Prepoznavanje blokova sa kljucem
+    int capacity;             // Kapacitet (broj kanti u hes mapi)
+    Segment** buckets;        // Niz pokazivaca na segmente
 } HashMap;
 
-// Funkcija za kreiranje hash mape
-HashMap* create_hashmap();
 
-// Funkcija za kreiranje bloka memorije
-Block* create_block(int size);
+static HashMap* segment_map;   // Globalna hes mapa
 
-// Funkcija za dodavanje bloka u hashmapu
-void add_block(HashMap* hashmap, Block* block);
+// Funkcija koja pornalazi slobodne segmente i brise ih
+void cleanup_free_segments();
 
-// Funkcija za alokaciju memorije
-Block* allocate_memory(HashMap* hashmap, int size);
+// Funkcija koja osluskuje za cisecenje memorije
+void* cleanup_segments(void* args);
 
-// Funkcija za oslobadjanje memorije
-void free_memory(HashMap* hashmap, int key);
+// Inicijalizacija Heap Manager-a
+void init_heap_manager();
+
+// Alokacija memorijskog bloka
+void* allocate_memory(int size);
+
+// Oslobadjanje memorijskog bloka
+void free_memory(void* address);
+
+// Pracenje performansi
+void print_memory_status();
+
+// Oslobadjanje svih resursa
+void cleanup_heap_manager();
 
 #endif // HEAP_MANAGER_H
-

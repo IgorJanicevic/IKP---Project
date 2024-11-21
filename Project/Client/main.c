@@ -12,8 +12,8 @@
 // Struktura za zahtev
 typedef struct Request {
     int type;           // Tip zahteva: 1 - alokacija, 2 - dealokacija
-    size_t size;        // Veli�ina za alokaciju (ako je tip 1)
-    int block_id;       // ID bloka za dealokaciju (ako je tip 2)
+    size_t size;        // Velicina za alokaciju (ako je tip 1)
+    void* block_id;       // ID bloka za dealokaciju (ako je tip 2)
 } Request;
 
 // Funkcija za slanje zahteva serveru
@@ -47,9 +47,7 @@ void menu(SOCKET socket){
     case 2:
         printf("Unesi pocetnu adresu\n");
         req.type=2;
-        int block_id;
-        scanf("%d",&block_id);
-        req.block_id=block_id;
+        scanf("%p", &req.block_id); 
         send_request(socket,&req);
         break;
     case 0:

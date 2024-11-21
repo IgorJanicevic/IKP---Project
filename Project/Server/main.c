@@ -12,13 +12,11 @@
 #define MAX_CLIENTS 10
 #define THREAD_POOL_SIZE 5
 
-HashMap* memory_map;
-
 // Struktura za zahtev
 typedef struct Request {
-    int type;           // Tip zahteva: 1 - alokacija, 2 - dealokacija
-    size_t size;           // Velicina za alokaciju (ako je tip 1)
-    int block_id;       // ID bloka za dealokaciju (ako je tip 2)
+    int type;       // Tip zahteva: 1 - alokacija, 2 - dealokacija
+    size_t size;    // Velicina za alokaciju (ako je tip 1)
+    void* block_id; // Adresa bloka za dealokaciju (ako je tip 2)
 } Request;
 
 // Red cekanja za zahteve
@@ -52,23 +50,26 @@ Request dequeue() {
 // Funkcija za obradu zahteva
 void process_request(Request req) {
     if (req.type == 1) { // Alokacija
-        Block* allocated_block = allocate_memory(memory_map, req.size);
+        Segment* allocated_block = allocate_memory(req.size);
         if (allocated_block != NULL) {
-            printf("Memorija alocirana: %zu bajtova\n", allocated_block->size);
+            printf("Memorija alocirana: %d bajtova\n", allocated_block->size);
+            print_memory_status();
         } else {
             printf("Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
         }
     } else if (req.type == 2) { // Dealokacija
-       free_memory(memory_map, req.block_id);
+       free_memory(req.block_id);
         printf("Memorija sa ID %d je oslobodjena.\n", req.block_id);
+        print_memory_status();
+        
     }
 }
 
 // Funkcija za rad niti u thread pool-u
 void* thread_pool_worker(void* arg) {
     while (1) {
-        Request req = dequeue(); // Uzimanje zahteva iz reda
-        process_request(req);   // Obrada zahteva
+        Request req = dequeue();
+        process_request(req);
     }
     return NULL;
 }
@@ -82,25 +83,28 @@ void* handle_client(void* client_socket_ptr) {
         Request req;
         int bytes_received = recv(client_socket, (char*)&req, sizeof(Request), 0);
         if (bytes_received == SOCKET_ERROR) {
-            printf("Greska pri primanju podataka. Greska: %d\n", WSAGetLastError());
+            int error_code = WSAGetLastError();
+            printf("Greska pri primanju podataka. Greska: %d\n", error_code);
             break;
         } else if (bytes_received == 0) {
             printf("Klijent je zatvorio vezu.\n");
             break;
         }
 
-        
         if (bytes_received == sizeof(Request)) {
             printf("Primljen zahtev od klijenta.\n");
             enqueue(req);
+        } else if (bytes_received > 0) {
+            printf("Nepotpun zahtev: primljeno %d bajtova od %zu potrebnih.\n", bytes_received, sizeof(Request));
         } else {
-            printf("Nepotpun zahtev ili greska u primanju.\n");
+            printf("Nepoznata greska u primanju.\n");
         }
     }
 
     closesocket(client_socket);
     return NULL;
 }
+
 
 // Funkcija za slusanje i prihvatanje klijenata
 void* accept_clients(void* server_fd_ptr) {
@@ -132,14 +136,8 @@ int main() {
     SOCKET server_fd;
     struct sockaddr_in server_addr;
     // Kreiranje hash mape za upravljanje memorijom
-    memory_map = create_hashmap();
-
-    // Dodavanje nekoliko inicijalnih blokova (primer)
-    for (int i = 0; i < 10; i++) {
-        Block* block = create_block(1024 * (i + 1)); // Blokovi različitih veličina
-        add_block(memory_map, i, block);
-    }
-
+    
+    init_heap_manager();
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -180,6 +178,10 @@ int main() {
     pthread_t accept_thread;
     pthread_create(&accept_thread, NULL, accept_clients, &server_fd);
 
+    // Kreiranje niti za ciscenje memorije
+    pthread_t cleanup_thread;
+    pthread_create(&cleanup_thread, NULL, cleanup_segments, NULL);
+
     // Kreiranje niti u thread pool-u
     pthread_t thread_pool[THREAD_POOL_SIZE];
     for (int i = 0; i < THREAD_POOL_SIZE; i++) {
@@ -196,12 +198,15 @@ int main() {
     closesocket(server_fd);
     WSACleanup();
 
-    for (int i = 0; i < 1000; i++) {
-    if (memory_map->blocks[i] != NULL) {
-        free(memory_map->blocks[i]);
+
+    // cleanup_heap_manager();
+
+    for (int i = 0; i < HASHMAP_BUCKETS; i++) {
+    if (segment_map->buckets[i] != NULL) {
+        free(segment_map->buckets[i]);
     }
     }
-    free(memory_map);
+    free(segment_map);
 
 
     return 0;
