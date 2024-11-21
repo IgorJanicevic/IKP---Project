@@ -5,29 +5,38 @@
 // Funkcija za kreiranje hash mape
 HashMap* create_hashmap() {
     HashMap* hashmap = (HashMap*)malloc(sizeof(HashMap));
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < HASHMAP_SIZE; i++) {
         hashmap->blocks[i] = NULL;
     }
     return hashmap;
 }
 
 // Funkcija za kreiranje bloka memorije
-Block* create_block(size_t size) {
-    Block* block = (Block*)malloc(sizeof(Block));
+Block* create_block(int size) {
+    Block* block = (Block*)malloc(sizeof(Block) + calculate_segments(size));
     block->size = size;
     block->is_allocated = 0; // Blok je slobodan
+    block->next = NULL;
     return block;
 }
 
 // Funkcija za dodavanje bloka u hashmapu
-void add_block(HashMap* hashmap, int key, Block* block) {
-    hashmap->blocks[key] = block;
+void add_block(HashMap* hashmap, Block* block) {
+    hashmap->blocks[hash_key(block->size)] = block;
+}
+
+int calculate_segments(int size){
+    return (size + SEGMENT_SIZE-1) / SEGMENT_SIZE;
+}
+
+int hash_key(int size){
+    return size % HASHMAP_SIZE;
 }
 
 // Funkcija za alokaciju memorije
-Block* allocate_memory(HashMap* hashmap, size_t size) {
-    for (int i = 0; i < 1000; i++) {
-        if (hashmap->blocks[i] != NULL && !hashmap->blocks[i]->is_allocated && hashmap->blocks[i]->size >= size) {
+Block* allocate_memory(HashMap* hashmap, int size) {
+    for (int i = 0; i < HASHMAP_SIZE; i++) {
+        if (!hashmap->blocks[i]->is_allocated && hashmap->blocks[i]->size >= size) { //hashmap->blocks[i] != NULL
             hashmap->blocks[i]->is_allocated = 1;
             return hashmap->blocks[i];
         }
