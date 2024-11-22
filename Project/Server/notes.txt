@@ -1,0 +1,12 @@
+//Da li je bolje da mapa ima blokove koji ce da sadrze adresu,da li je zauzet,next,broj segmenata,velicina zauzetog prostora
+//Gde mozemo npr i izbaciti broj segmenata pa da ga kasnije racunamo na osnovu zauzetog prostora/velicina segmenta
+//I kada zauzimamo da se samo dodaje blok
+
+//Ili je bolje da imamo kao i sada segmente pa kada se zauzima mesto da se npr kreiraju vise segmenta
+//Ali time ne mozemo da pratimo koji blok se sastoji od kojih segmenata
+
+
+//Ako mapa sazdri segmente(popunjenost,) onda bi se blokovi kao manje jedinice smestali po segmentima,
+//na osnovu adrese bloka to ce se hesirati i ubaciti u odgovarajcui baket, takodje isto i za pretragu
+//tj ubacice se u taj segment tu ako nema dovoljno prostora pravicemo novi segment koji ce biti u istom baketu i dodaje se na pocetku.
+//blok treba da sadrzi kapacitet,adresu

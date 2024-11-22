@@ -3,47 +3,41 @@
 
 #include <stddef.h> // Za void* i size_t
 
-#define SEGMENT_SIZE 1024
-#define HASHMAP_BUCKETS 10
+#define NUM_BUCKETS 10         // Broj baketa (segmenata)
+#define SEGMENT_SIZE 1024      // Veličina svakog segmenta (1024 bajta)
+#define MAX_BLOCK_SIZE 512     // Maksimalna veličina bloka koji može stati u segment
 #define MAX_FREE_SEGMENTS 5
 
+// Struktura koja predstavlja blok
+typedef struct Block {
+    void* address;            // Adresa bloka u segmentu
+    size_t size;              // Veličina bloka
+    struct Block* next;       // Sledeći blok u listi
+} Block;
 
-// Struktura za segment
+// Struktura koja predstavlja segment
 typedef struct Segment {
-    int is_free;              // Da li je segment slobodan (1 = slobodan, 0 = zauzet)
-    size_t size;              // Velicina segmenta
-    void* address;            // Memorijska adresa
-    struct Segment* next;     // Sledeci segment u lancu
+    void* base_address;       // Adresa početka segmenta
+    size_t used_size;         // Količina iskorišćenog prostora u segmentu
+    Block* blocks;            // Lista blokova unutar segmenta
+    struct Segment* next;     // Sledeći segment u listi
 } Segment;
 
-// Hes mapa za segmente
-typedef struct HashMap {
-    int capacity;             // Kapacitet (broj kanti u hes mapi)
-    Segment** buckets;        // Niz pokazivaca na segmente
-} HashMap;
+// Globalna hashmapa sa segmentima
+extern Segment* segment_map[NUM_BUCKETS];  // Deklaracija, ne inicijalizacija
 
 
-static HashMap* segment_map;   // Globalna hes mapa
 
-// Funkcija koja pornalazi slobodne segmente i brise ih
+void* cleanup_segments(void* arg);
+unsigned int hash(void* address);
 void cleanup_free_segments();
 
-// Funkcija koja osluskuje za cisecenje memorije
-void* cleanup_segments(void* args);
 
-// Inicijalizacija Heap Manager-a
-void init_heap_manager();
-
-// Alokacija memorijskog bloka
-void* allocate_memory(int size);
-
-// Oslobadjanje memorijskog bloka
-void free_memory(void* address);
-
-// Pracenje performansi
 void print_memory_status();
+void free_block(void* address);
+void* allocate_block(size_t size);
 
-// Oslobadjanje svih resursa
-void cleanup_heap_manager();
+// void cleanup_heap_manager();
+
 
 #endif // HEAP_MANAGER_H

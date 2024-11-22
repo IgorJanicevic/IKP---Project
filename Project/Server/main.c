@@ -50,19 +50,17 @@ Request dequeue() {
 // Funkcija za obradu zahteva
 void process_request(Request req) {
     if (req.type == 1) { // Alokacija
-        Segment* allocated_block = allocate_memory(req.size);
+        void* allocated_block = allocate_block(req.size);
         if (allocated_block != NULL) {
-            printf("Memorija alocirana: %d bajtova\n", allocated_block->size);
-            print_memory_status();
+            printf("Memorija alocirana: %zu bajtova\n", req.size);
         } else {
-            printf("Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
+            printf("Nema dovoljno slobodne memorije za alokaciju %zu bajtova.\n", req.size);
         }
     } else if (req.type == 2) { // Dealokacija
-       free_memory(req.block_id);
-        printf("Memorija sa ID %d je oslobodjena.\n", req.block_id);
-        print_memory_status();
-        
+        free_block(req.block_id);
+        printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
     }
+    print_memory_status();
 }
 
 // Funkcija za rad niti u thread pool-u
@@ -135,9 +133,15 @@ int main() {
     WSADATA wsa;
     SOCKET server_fd;
     struct sockaddr_in server_addr;
-    // Kreiranje hash mape za upravljanje memorijom
-    
-    init_heap_manager();
+    extern Segment* segment_map[NUM_BUCKETS];  // Spoljašnja deklaracija
+
+
+    // Inicijalizacija heap manager-a
+    int segment_size = SEGMENT_SIZE;  // Inicijalizacija veličine segmenta
+    int num_segments = 0;  // Početni broj alociranih segmenata
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        segment_map[i] = NULL;  // Inicializacija hashmapa
+    }
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -178,7 +182,7 @@ int main() {
     pthread_t accept_thread;
     pthread_create(&accept_thread, NULL, accept_clients, &server_fd);
 
-    // Kreiranje niti za ciscenje memorije
+    // Kreiranje niti za ciscenje memorije (ako je potrebno)
     pthread_t cleanup_thread;
     pthread_create(&cleanup_thread, NULL, cleanup_segments, NULL);
 
@@ -198,16 +202,16 @@ int main() {
     closesocket(server_fd);
     WSACleanup();
 
-
+    // Čišćenje memorije
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        Segment* segment = segment_map[i];
+        while (segment != NULL) {
+            free(segment->base_address);
+            Segment* temp = segment;
+            segment = segment->next;
+            free(temp);
+        }
+    }
     // cleanup_heap_manager();
-
-    for (int i = 0; i < HASHMAP_BUCKETS; i++) {
-    if (segment_map->buckets[i] != NULL) {
-        free(segment_map->buckets[i]);
-    }
-    }
-    free(segment_map);
-
-
     return 0;
 }
