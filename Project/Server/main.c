@@ -59,18 +59,18 @@ void process_request(Request req) {
     if (req.type == 1) { // Alokacija
         address_alocated_block = allocate_block(req.size);
         if (address_alocated_block != NULL) {
-            printf("Memorija alocirana: %zu bajtova\n", req.size);
+            //printf("Memorija alocirana: %zu bajtova\n", req.size);
             snprintf(message, sizeof(message), "Memorija alocirana: %d bajtova\nMemorija alocirana na adresi: %p\n", req.size, address_alocated_block);
 
         } else {
-            printf("Nema dovoljno slobodne memorije za alokaciju %zu bajtova.\n", req.size);
+            //printf("Nema dovoljno slobodne memorije za alokaciju %zu bajtova.\n", req.size);
             snprintf(message, sizeof(message), "Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
 
         }
     } else if (req.type == 2) { // Dealokacija
         free_block(req.block_id);
         snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);
-        printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
+        //printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
     }
     print_memory_status();
 }
@@ -160,7 +160,7 @@ int main() {
     extern Segment* segment_map[NUM_BUCKETS];  // Spoljašnja deklaracija
 
 
-    snprintf(message, sizeof(message), "INICIJALIZVOANA\n");
+    snprintf(message, sizeof(message), "Inicijalizovana\n");
 
     // Inicijalizacija heap manager-a
     int segment_size = SEGMENT_SIZE;  // Inicijalizacija veličine segmenta
@@ -168,8 +168,6 @@ int main() {
     for (int i = 0; i < NUM_BUCKETS; i++) {
         segment_map[i] = NULL;  // Inicializacija hashmapa
     }
-
-    snprintf(message, sizeof(message), "INICIJALIZVOANA\n");
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {

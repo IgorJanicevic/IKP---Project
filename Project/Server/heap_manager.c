@@ -26,26 +26,27 @@ unsigned int hash_address(void* address){
 }
 
 void* allocate_block(size_t size) {
-    unsigned int bucket = hash(&size);
-    Segment* segment = segment_map[bucket];
 
     if(size>SEGMENT_SIZE){
-        printf("Preveliki blok!");
+        printf("Blok koji korisnik zeli da alocira je preveliki blok!");
         return NULL;
     }
+
+    Block* new_block = (Block*)malloc(sizeof(Block));
+
+    unsigned int bucket = hash(new_block);
+    Segment* segment = segment_map[bucket];
 
     // Pronadji segment sa dovoljno slobodnog prostora
     while (segment != NULL) {
         if (segment->used_size + size <= SEGMENT_SIZE) {
             // Ima dovoljno prostora u ovom segmentu, alociraj blok
-            Block* new_block = (Block*)malloc(sizeof(Block));
-            new_block->address = &size;
+            new_block->address = new_block;
             new_block->size = size;
             new_block->next = segment->blocks;
             segment->blocks = new_block;
 
             segment->used_size += size;  // Azuriraj iskoriscen prostor u segmentu
-            printf("ADRESA NOVOG BLOKA: %p",new_block->address);
             return new_block->address;
         }
         segment = segment->next;
@@ -55,15 +56,13 @@ void* allocate_block(size_t size) {
     Segment* new_segment = (Segment*)malloc(sizeof(Segment));
     new_segment->base_address = malloc(SEGMENT_SIZE);
     new_segment->used_size = size;
-    new_segment->blocks = (Block*)malloc(sizeof(Block));
-    new_segment->blocks->address = &size;
+    new_segment->blocks = new_block;
+    new_segment->blocks->address = new_segment->blocks;
     new_segment->blocks->size = size;
     new_segment->blocks->next = NULL;
     new_segment->next = segment_map[bucket];
 
     segment_map[bucket] = new_segment;  // Dodaj segment u hashmapu
-
-            printf("ADRESA NOVOG BLOKA ALI I NOVI SEG: %p",new_segment->blocks->address);
 
     return new_segment->blocks->address;
 }
@@ -133,7 +132,7 @@ void* cleanup_segments(void* arg) {
     while (1) {
         pthread_mutex_lock(&heap_lock);
 
-        while (freed_segments_count <= MAX_FREE_SEGMENTS) {
+        while (freed_segments_count < MAX_FREE_SEGMENTS) {
             pthread_cond_wait(&cleanup_cond, &heap_lock); 
         }
 
@@ -149,7 +148,7 @@ void* cleanup_segments(void* arg) {
 
 
 void cleanup_free_segments() {
-
+    printf("\nPokrenuto je ciscenje memorije..\n\n");
     // Prolazak kroz sve segmente
     for (int i = 0; i < NUM_BUCKETS; ++i) {
         Segment* prev_segment = NULL;
