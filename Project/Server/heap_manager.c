@@ -12,146 +12,121 @@ static int segment_size;       // Velicina jednog segmenta
 static int num_segments;       // Broj alociranih segmenata
 
 
+Segment* segment_map[NUM_BUCKETS] = { NULL };  // Inicijalizacija segment_map-a
 
-// Funkcija hesiranje
-static int hash_function(void* address) {
-    return ((uintptr_t)address) % segment_map->capacity;
+
+//Ovo je da se generise za bucket ovo ne diraj
+unsigned int hash(void* address) {
+    return ((uintptr_t)address) % NUM_BUCKETS; 
 }
 
-// Inicijalizacija hes mape
-static void init_hash_map(HashMap* map, int capacity) {
-    map->capacity = capacity;
-    map->buckets = (Segment**)calloc(capacity, sizeof(Segment*));
+//Ovo da se implementira i kada se kreira novi blok da dobije ovu vrednost
+unsigned int hash_address(void* address){
+    return -1;
 }
 
-// Dodavanje segmenta u hes mapu
-static void add_segment_to_map(HashMap* map, Segment* segment) {
-    int index = hash_function(segment->address);
-    segment->next = map->buckets[index];
-    map->buckets[index] = segment;
-}
+void* allocate_block(size_t size) {
+    unsigned int bucket = hash(&size);
+    Segment* segment = segment_map[bucket];
 
-// Pronalazenje segmenta u hes mapi
-static Segment* find_segment_in_map(HashMap* map, void* address) {
-    int index = hash_function(address);
-    Segment* current = map->buckets[index];
-    while (current != NULL) {
-        if (current->address == address) {
-            return current;
-        }
-        current = current->next;
-    }
-    return NULL;
-}
-
-// Uklanjanje segmenta iz hes mape
-static void remove_segment_from_map(HashMap* map, void* address) {
-    int index = hash_function(address);
-    Segment* current = map->buckets[index];
-    Segment* prev = NULL;
-
-    while (current != NULL) {
-        if (current->address == address) {
-            if (prev == NULL) {
-                map->buckets[index] = current->next;
-            } else {
-                prev->next = current->next;
-            }
-            free(current->address);
-            free(current);
-            return;
-        }
-        prev = current;
-        current = current->next;
-    }
-}
-
-// Inicijalizacija Heap Manager-a
-void init_heap_manager() {
-    segment_size = SEGMENT_SIZE;
-    num_segments = 0;
-    segment_map = (HashMap*)malloc(sizeof(HashMap));
-    init_hash_map(segment_map, HASHMAP_BUCKETS);
-    pthread_mutex_init(&heap_lock, NULL);
-}
-
-
-void* allocate_memory(int size) {
-    pthread_mutex_lock(&heap_lock);
-
-    int segments_needed = (size + segment_size - 1) / segment_size;
-    Segment* best_fit = NULL;
-
-    // Traženje slobodnih segmenata
-    for (int i = 0; i < segment_map->capacity; ++i) {
-        Segment* current = segment_map->buckets[i];
-        while (current != NULL) {
-            if (current->is_free && current->size >= size) {
-                best_fit = current;
-                break;
-            }
-            current = current->next;
-        }
-        if (best_fit) break;
-    }
-
-    // Ako nema slobodnih segmenata, alociraj nove
-    if (!best_fit) {
-        for (int i = 0; i < segments_needed; ++i) {
-            Segment* new_segment = (Segment*)malloc(sizeof(Segment));
-            if (new_segment == NULL) {
-                printf("Greska: Neuspesna alokacija za novi segment!\n");
-                pthread_mutex_unlock(&heap_lock);
-                return NULL;
-            }
-            new_segment->is_free = 0;
-            new_segment->size = segment_size;
-            new_segment->address = malloc(segment_size);
-            if (new_segment->address == NULL) {
-                printf("Greska: Neuspesna alokacija memorije za segment!\n");
-                free(new_segment);
-                pthread_mutex_unlock(&heap_lock);
-                return NULL;
-            }
-            add_segment_to_map(segment_map, new_segment);
-            ++num_segments;
-
-            if (i == 0) {
-                best_fit = new_segment;
-            }
-        }
-    }
-
-    if (best_fit == NULL) {
-        printf("Greska: Nije pronadjen ili kreiran odgovarajuci segment!\n");
-        pthread_mutex_unlock(&heap_lock);
+    if(size>SEGMENT_SIZE){
+        printf("Preveliki blok!");
         return NULL;
     }
 
-    best_fit->is_free = 0;
-    pthread_mutex_unlock(&heap_lock);
+    // Pronadji segment sa dovoljno slobodnog prostora
+    while (segment != NULL) {
+        if (segment->used_size + size <= SEGMENT_SIZE) {
+            // Ima dovoljno prostora u ovom segmentu, alociraj blok
+            Block* new_block = (Block*)malloc(sizeof(Block));
+            new_block->address = &size;
+            new_block->size = size;
+            new_block->next = segment->blocks;
+            segment->blocks = new_block;
 
-    return best_fit;
-}
-
-
-void free_memory(void* address) {
-    pthread_mutex_lock(&heap_lock);
-
-    Segment* segment = find_segment_in_map(segment_map, address);
-    if (segment != NULL) {
-        segment->is_free = 1;
-        freed_segments_count++;
-
-        if (freed_segments_count > MAX_FREE_SEGMENTS) {
-            printf("\nPresli smo prag oslobodjenih segmenata. Pokrecemo ciscenje...\n");
-            pthread_cond_signal(&cleanup_cond);
+            segment->used_size += size;  // Azuriraj iskoriscen prostor u segmentu
+            printf("ADRESA NOVOG BLOKA: %p",new_block->address);
+            return new_block->address;
         }
+        segment = segment->next;
     }
 
-    pthread_mutex_unlock(&heap_lock);
+    // Ako nema dovoljno prostora u postojecim segmentima, kreiraj novi segment
+    Segment* new_segment = (Segment*)malloc(sizeof(Segment));
+    new_segment->base_address = malloc(SEGMENT_SIZE);
+    new_segment->used_size = size;
+    new_segment->blocks = (Block*)malloc(sizeof(Block));
+    new_segment->blocks->address = &size;
+    new_segment->blocks->size = size;
+    new_segment->blocks->next = NULL;
+    new_segment->next = segment_map[bucket];
+
+    segment_map[bucket] = new_segment;  // Dodaj segment u hashmapu
+
+            printf("ADRESA NOVOG BLOKA ALI I NOVI SEG: %p",new_segment->blocks->address);
+
+    return new_segment->blocks->address;
 }
 
+
+void free_block(void* address) {
+    unsigned int bucket = hash(address);
+    Segment* segment = segment_map[bucket];
+
+    while (segment != NULL) {
+        Block* prev = NULL;
+        Block* current = segment->blocks;
+
+        // Trazenje bloka koji treba da se oslobodi
+        while (current != NULL) {
+            if (current->address == address) {
+                segment->used_size -= current->size;
+                
+                // Ako se pronadje blok, ukloni ga iz liste blokova
+                if (prev != NULL) {
+                    prev->next = current->next;
+                } else {
+                    segment->blocks = current->next;
+                }
+                free(current); // Oslobadjanje memorije za blok
+
+
+                // Ako je segment sada prazan, povecati broja slobodnih segmenata
+                if (segment->used_size == 0) {
+                    printf("Segment postao prazan!\n");
+                    freed_segments_count++;
+                }
+
+                if(freed_segments_count>5){
+                    pthread_cond_signal(&cleanup_cond);
+                }
+                return;
+            }
+            prev = current;
+            current = current->next;
+        }
+        segment = segment->next;
+    }
+
+    printf("Blok nije pronadjen!\n");
+}
+
+
+
+void print_memory_status() {
+    for (int i = 0; i < NUM_BUCKETS; ++i) {
+        Segment* segment = segment_map[i];
+        while (segment != NULL) {
+            printf("Segment @ %p | Korisni prostor: %zu / %zu\n", segment->base_address, segment->used_size, SEGMENT_SIZE);
+            Block* block = segment->blocks;
+            while (block != NULL) {
+                printf("  Blok @ %p | Velicina: %zu\n", block->address, block->size);
+                block = block->next;
+            }
+            segment = segment->next;
+        }
+    }
+}
 
 
 void* cleanup_segments(void* arg) {
@@ -162,7 +137,6 @@ void* cleanup_segments(void* arg) {
             pthread_cond_wait(&cleanup_cond, &heap_lock); 
         }
 
-        printf("Pokrecemo ciscenje memorije...\n");
         cleanup_free_segments();  
 
         freed_segments_count = 0; 
@@ -172,56 +146,38 @@ void* cleanup_segments(void* arg) {
     return NULL;
 }
 
+
+
 void cleanup_free_segments() {
-    for (int i = 0; i < segment_map->capacity; ++i) {
-        Segment* current = segment_map->buckets[i];
-        while (current != NULL) {
-            if (current->is_free) {
-                remove_segment_from_map(segment_map, current->address);
-                --num_segments;  // Smanjivanje broja segmenata                
+
+    // Prolazak kroz sve segmente
+    for (int i = 0; i < NUM_BUCKETS; ++i) {
+        Segment* prev_segment = NULL;
+        Segment* current_segment = segment_map[i];
+
+        while (current_segment != NULL) {
+            if (current_segment->used_size == 0) {
+
+                // Uklanjanje praznog segmenta
+                if (prev_segment == NULL) {
+                    segment_map[i] = current_segment->next;
+                } else {
+                    prev_segment->next = current_segment->next;
+                }
+
+                free(current_segment->base_address);
+                free(current_segment);
+                freed_segments_count++;
+            } else {
+                prev_segment = current_segment;
             }
-            current = current->next;
+            current_segment = current_segment->next;
         }
     }
+
 }
 
 
 
 
-// Oslobađanje svih resursa
-void cleanup_heap_manager() {
-    pthread_mutex_lock(&heap_lock);
 
-    for (int i = 0; i < segment_map->capacity; ++i) {
-        Segment* current = segment_map->buckets[i];
-        while (current != NULL) {
-            Segment* to_free = current;
-            current = current->next;
-            free(to_free->address);
-            free(to_free);
-        }
-    }
-
-    free(segment_map->buckets);
-    free(segment_map);
-
-    pthread_mutex_unlock(&heap_lock);
-    pthread_mutex_destroy(&heap_lock);
-}
-
-
-// Ispis statusa memorije
-void print_memory_status() {
-    pthread_mutex_lock(&heap_lock);
-
-    printf("Total segments: %d\n", num_segments);
-    for (int i = 0; i < segment_map->capacity; ++i) {
-        Segment* current = segment_map->buckets[i];
-        while (current != NULL) {
-            printf("Segment @ %p | Size: %zu | Free: %d\n",
-                   current->address, current->size, current->is_free);
-            current = current->next;
-        }
-    }
-    pthread_mutex_unlock(&heap_lock);
-}

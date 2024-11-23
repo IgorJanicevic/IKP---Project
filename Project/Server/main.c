@@ -27,6 +27,10 @@ int queue_rear = 0;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 
+static char message[1024]; // Pretpostavljena veličina niza za poruku
+void* address_alocated_block=NULL;
+
+
 // Funkcija za dodavanje zahteva u red
 void enqueue(Request req) {
     pthread_mutex_lock(&queue_mutex);
@@ -53,22 +57,22 @@ static char message[1024]; // Pretpostavljena veličina niza za poruku
 // Funkcija za obradu zahteva
 void process_request(Request req) {
     if (req.type == 1) { // Alokacija
-        Segment* allocated_block = allocate_memory(req.size);
-        if (allocated_block != NULL) {
-            snprintf(message, sizeof(message), "Memorija alocirana: %d bajtova\nMemorija alocirana na adresi: %p\n", req.size, allocated_block->address);
-            printf("%s", message);
-            print_memory_status();
+        address_alocated_block = allocate_block(req.size);
+        if (address_alocated_block != NULL) {
+            printf("Memorija alocirana: %zu bajtova\n", req.size);
+            snprintf(message, sizeof(message), "Memorija alocirana: %d bajtova\nMemorija alocirana na adresi: %p\n", req.size, address_alocated_block);
+
         } else {
+            printf("Nema dovoljno slobodne memorije za alokaciju %zu bajtova.\n", req.size);
             snprintf(message, sizeof(message), "Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
-            printf("%s", message);
+
         }
     } else if (req.type == 2) { // Dealokacija
-       free_memory(req.block_id);
-       snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);
+        free_block(req.block_id);
+        snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);
         printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
-        print_memory_status();
-        
     }
+    print_memory_status();
 }
 
 void send_message(SOCKET sock) {
@@ -114,8 +118,8 @@ void* handle_client(void* client_socket_ptr) {
         } else {
             printf("Nepoznata greska u primanju.\n");
         }
-        Sleep(100);
-        send_message(client_socket);
+         Sleep(100);
+         send_message(client_socket);
     }
 
     closesocket(client_socket);
@@ -148,13 +152,22 @@ void* accept_clients(void* server_fd_ptr) {
     return NULL;
 }
 
+
 int main() {
     WSADATA wsa;
     SOCKET server_fd;
     struct sockaddr_in server_addr;
-    // Kreiranje hash mape za upravljanje memorijom
-    
-    init_heap_manager();
+    extern Segment* segment_map[NUM_BUCKETS];  // Spoljašnja deklaracija
+
+
+    snprintf(message, sizeof(message), "INICIJALIZVOANA\n");
+
+    // Inicijalizacija heap manager-a
+    int segment_size = SEGMENT_SIZE;  // Inicijalizacija veličine segmenta
+    int num_segments = 0;  // Početni broj alociranih segmenata
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        segment_map[i] = NULL;  // Inicializacija hashmapa
+    }
 
     snprintf(message, sizeof(message), "INICIJALIZVOANA\n");
 
@@ -182,6 +195,7 @@ int main() {
         WSACleanup();
         return 1;
     }
+    
 
     // Slusanje za klijente
     if (listen(server_fd, MAX_CLIENTS) == SOCKET_ERROR) {
@@ -197,7 +211,7 @@ int main() {
     pthread_t accept_thread;
     pthread_create(&accept_thread, NULL, accept_clients, &server_fd);
 
-    // Kreiranje niti za ciscenje memorije
+    // Kreiranje niti za ciscenje memorije (ako je potrebno)
     pthread_t cleanup_thread;
     pthread_create(&cleanup_thread, NULL, cleanup_segments, NULL);
 
@@ -217,16 +231,16 @@ int main() {
     closesocket(server_fd);
     WSACleanup();
 
-
+    // Čišćenje memorije
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        Segment* segment = segment_map[i];
+        while (segment != NULL) {
+            free(segment->base_address);
+            Segment* temp = segment;
+            segment = segment->next;
+            free(temp);
+        }
+    }
     // cleanup_heap_manager();
-
-    for (int i = 0; i < HASHMAP_BUCKETS; i++) {
-    if (segment_map->buckets[i] != NULL) {
-        free(segment_map->buckets[i]);
-    }
-    }
-    free(segment_map);
-
-
     return 0;
 }
