@@ -25,6 +25,23 @@ void send_request(SOCKET sock, Request* req) {
     printf("Zahtev poslat serveru.\n");
 }
 
+void receive_message(SOCKET sock) {
+    char buffer[1024]; // Buffer za prijem poruke (prilagodi veličinu prema očekivanoj poruci)
+
+    // Prijem poruke sa servera
+    int bytes_received = recv(sock, buffer, sizeof(buffer) - 1, 0); // Ostavi prostor za '\0'
+    if (bytes_received == SOCKET_ERROR) {
+        printf("Greska prilikom prijema poruke. Greska: %d\n", WSAGetLastError());
+        return;
+    }
+
+    // Završetak stringa
+    buffer[bytes_received] = '\0'; // Osiguraj da je primljeni podatak string
+
+    // Ispis primljene poruke
+    printf("Primljena poruka: %s\n", buffer);
+}
+
 void menu(SOCKET socket){
     do{
     printf("\n\n****************************\n");
@@ -43,6 +60,7 @@ void menu(SOCKET socket){
         scanf("%d",&size);
         req.size=size;
         send_request(socket,&req);
+        //receive_message(socket);
         break;
     case 2:
         printf("Unesi pocetnu adresu\n");
@@ -56,7 +74,9 @@ void menu(SOCKET socket){
     default:
         printf("Nevalidna komanda\n");
         break;
-    }}while(1);
+    }
+    receive_message(socket);
+    }while(1);
 }
 
 int main() {

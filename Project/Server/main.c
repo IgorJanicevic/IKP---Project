@@ -47,15 +47,19 @@ Request dequeue() {
     return req;
 }
 
+static char message[1024]; // Pretpostavljena veličina niza za poruku
+
 // Funkcija za obradu zahteva
 void process_request(Request req) {
     if (req.type == 1) { // Alokacija
         Segment* allocated_block = allocate_memory(req.size);
         if (allocated_block != NULL) {
-            printf("Memorija alocirana: %d bajtova\n", allocated_block->size);
+            snprintf(message, sizeof(message), "Memorija alocirana: %d bajtova\nMemorija alocirana na adresi: %p\n", req.size, allocated_block->address);
+            printf("%s", message);
             print_memory_status();
         } else {
-            printf("Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
+            snprintf(message, sizeof(message), "Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
+            printf("%s", message);
         }
     } else if (req.type == 2) { // Dealokacija
        free_memory(req.block_id);
@@ -64,6 +68,22 @@ void process_request(Request req) {
         
     }
 }
+
+void send_message(SOCKET sock, const char* message) {
+    // Dobijamo dužinu poruke
+    size_t message_length = strlen(message);
+    printf("Ovo je poruka koja se salje: ");
+    printf("%s", message);
+    printf("----------------------------------------------------------------\n");
+    // Šaljemo poruku
+    if (send(sock, message, 1000, 0) == SOCKET_ERROR) {
+        printf("Neuspesno slanje poruke. Greska: %d\n", WSAGetLastError());
+        exit(1);
+    }
+
+    printf("Poruka poslata klijentu: %s\n--------------\n", message);
+}
+
 
 // Funkcija za rad niti u thread pool-u
 void* thread_pool_worker(void* arg) {
@@ -99,6 +119,7 @@ void* handle_client(void* client_socket_ptr) {
         } else {
             printf("Nepoznata greska u primanju.\n");
         }
+        send_message(client_socket, message);
     }
 
     closesocket(client_socket);
@@ -138,6 +159,8 @@ int main() {
     // Kreiranje hash mape za upravljanje memorijom
     
     init_heap_manager();
+
+    snprintf(message, sizeof(message), "INICIJALIZVOANA\n");
 
     // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {

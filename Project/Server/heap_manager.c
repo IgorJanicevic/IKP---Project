@@ -131,7 +131,7 @@ void* allocate_memory(int size) {
     best_fit->is_free = 0;
     pthread_mutex_unlock(&heap_lock);
 
-    return best_fit->address;
+    return best_fit;
 }
 
 
