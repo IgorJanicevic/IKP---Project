@@ -64,22 +64,18 @@ void process_request(Request req) {
         }
     } else if (req.type == 2) { // Dealokacija
        free_memory(req.block_id);
-        printf("Memorija sa ID %d je oslobodjena.\n", req.block_id);
+       snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);
+        printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
         print_memory_status();
         
     }
 }
 
 void send_message(SOCKET sock) {
-    // Dobijamo dužinu poruke
-    size_t message_length = strlen(message);
-
-    // Šaljemo poruku
     if (send(sock, message, 1000, 0) == SOCKET_ERROR) {
         printf("Neuspesno slanje poruke. Greska: %d\n", WSAGetLastError());
         exit(1);
     }
-
     printf("Poruka poslata klijentu!\n");
 }
 

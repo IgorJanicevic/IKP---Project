@@ -60,13 +60,14 @@ void menu(SOCKET socket){
         scanf("%d",&size);
         req.size=size;
         send_request(socket,&req);
-        //receive_message(socket);
+        receive_message(socket);
         break;
     case 2:
         printf("Unesi pocetnu adresu\n");
         req.type=2;
         scanf("%p", &req.block_id); 
         send_request(socket,&req);
+        receive_message(socket);
         break;
     case 0:
         printf("Izasli ste\n");
@@ -75,7 +76,7 @@ void menu(SOCKET socket){
         printf("Nevalidna komanda\n");
         break;
     }
-    receive_message(socket);
+    //receive_message(socket);
     }while(1);
 }
 
