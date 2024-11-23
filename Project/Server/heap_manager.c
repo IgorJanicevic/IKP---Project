@@ -20,10 +20,6 @@ unsigned int hash(void* address) {
     return ((uintptr_t)address) % NUM_BUCKETS; 
 }
 
-//Ovo da se implementira i kada se kreira novi blok da dobije ovu vrednost
-unsigned int hash_address(void* address){
-    return -1;
-}
 
 void* allocate_block(size_t size) {
 

@@ -76,7 +76,6 @@ void menu(SOCKET socket){
         printf("Nevalidna komanda\n");
         break;
     }
-    //receive_message(socket);
     }while(1);
 }
 
