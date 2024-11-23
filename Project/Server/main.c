@@ -5,6 +5,7 @@
 #include <ws2tcpip.h>
 #include <pthread.h>
 #include "heap_manager.h"
+#include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib") // Linkovanje Winsock biblioteke
 
@@ -69,19 +70,17 @@ void process_request(Request req) {
     }
 }
 
-void send_message(SOCKET sock, const char* message) {
+void send_message(SOCKET sock) {
     // Dobijamo dužinu poruke
     size_t message_length = strlen(message);
-    printf("Ovo je poruka koja se salje: ");
-    printf("%s", message);
-    printf("----------------------------------------------------------------\n");
+
     // Šaljemo poruku
     if (send(sock, message, 1000, 0) == SOCKET_ERROR) {
         printf("Neuspesno slanje poruke. Greska: %d\n", WSAGetLastError());
         exit(1);
     }
 
-    printf("Poruka poslata klijentu: %s\n--------------\n", message);
+    printf("Poruka poslata klijentu!\n");
 }
 
 
@@ -119,7 +118,8 @@ void* handle_client(void* client_socket_ptr) {
         } else {
             printf("Nepoznata greska u primanju.\n");
         }
-        send_message(client_socket, message);
+        Sleep(100);
+        send_message(client_socket);
     }
 
     closesocket(client_socket);
