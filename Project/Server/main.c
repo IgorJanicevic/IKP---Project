@@ -26,6 +26,10 @@ int queue_rear = 0;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 
+static char message[1024]; // Pretpostavljena veličina niza za poruku
+void* address_alocated_block=NULL;
+
+
 // Funkcija za dodavanje zahteva u red
 void enqueue(Request req) {
     pthread_mutex_lock(&queue_mutex);
@@ -50,18 +54,32 @@ Request dequeue() {
 // Funkcija za obradu zahteva
 void process_request(Request req) {
     if (req.type == 1) { // Alokacija
-        void* allocated_block = allocate_block(req.size);
-        if (allocated_block != NULL) {
+        address_alocated_block = allocate_block(req.size);
+        if (address_alocated_block != NULL) {
             printf("Memorija alocirana: %zu bajtova\n", req.size);
+            snprintf(message, sizeof(message), "Memorija alocirana: %d bajtova\nMemorija alocirana na adresi: %p\n", req.size, address_alocated_block);
+
         } else {
             printf("Nema dovoljno slobodne memorije za alokaciju %zu bajtova.\n", req.size);
+            snprintf(message, sizeof(message), "Nema dovoljno slobodne memorije za alokaciju %d bajtova.\n", req.size);
+
         }
     } else if (req.type == 2) { // Dealokacija
         free_block(req.block_id);
+        snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);
         printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
     }
     print_memory_status();
 }
+
+void send_message(SOCKET sock) {
+    if (send(sock, message, 1000, 0) == SOCKET_ERROR) {
+        printf("Neuspesno slanje poruke. Greska: %d\n", WSAGetLastError());
+        exit(1);
+    }
+    printf("Poruka poslata klijentu!\n");
+}
+
 
 // Funkcija za rad niti u thread pool-u
 void* thread_pool_worker(void* arg) {
@@ -97,6 +115,8 @@ void* handle_client(void* client_socket_ptr) {
         } else {
             printf("Nepoznata greska u primanju.\n");
         }
+         Sleep(100);
+         send_message(client_socket);
     }
 
     closesocket(client_socket);
@@ -129,12 +149,15 @@ void* accept_clients(void* server_fd_ptr) {
     return NULL;
 }
 
+
 int main() {
     WSADATA wsa;
     SOCKET server_fd;
     struct sockaddr_in server_addr;
     extern Segment* segment_map[NUM_BUCKETS];  // Spoljašnja deklaracija
 
+
+    snprintf(message, sizeof(message), "INICIJALIZVOANA\n");
 
     // Inicijalizacija heap manager-a
     int segment_size = SEGMENT_SIZE;  // Inicijalizacija veličine segmenta
@@ -167,6 +190,7 @@ int main() {
         WSACleanup();
         return 1;
     }
+    
 
     // Slusanje za klijente
     if (listen(server_fd, MAX_CLIENTS) == SOCKET_ERROR) {

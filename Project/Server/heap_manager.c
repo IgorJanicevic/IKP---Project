@@ -15,8 +15,14 @@ static int num_segments;       // Broj alociranih segmenata
 Segment* segment_map[NUM_BUCKETS] = { NULL };  // Inicijalizacija segment_map-a
 
 
+//Ovo je da se generise za bucket ovo ne diraj
 unsigned int hash(void* address) {
     return ((uintptr_t)address) % NUM_BUCKETS; 
+}
+
+//Ovo da se implementira i kada se kreira novi blok da dobije ovu vrednost
+unsigned int hash_address(void* address){
+    return -1;
 }
 
 void* allocate_block(size_t size) {
@@ -39,6 +45,7 @@ void* allocate_block(size_t size) {
             segment->blocks = new_block;
 
             segment->used_size += size;  // Azuriraj iskoriscen prostor u segmentu
+            printf("ADRESA NOVOG BLOKA: %p",new_block->address);
             return new_block->address;
         }
         segment = segment->next;
@@ -56,7 +63,9 @@ void* allocate_block(size_t size) {
 
     segment_map[bucket] = new_segment;  // Dodaj segment u hashmapu
 
-    return new_segment->base_address;
+            printf("ADRESA NOVOG BLOKA ALI I NOVI SEG: %p",new_segment->blocks->address);
+
+    return new_segment->blocks->address;
 }
 
 
@@ -148,7 +157,6 @@ void cleanup_free_segments() {
 
         while (current_segment != NULL) {
             if (current_segment->used_size == 0) {
-                printf("Segment @ %p je prazan i bice oslobodjen.\n", current_segment->base_address);
 
                 // Uklanjanje praznog segmenta
                 if (prev_segment == NULL) {

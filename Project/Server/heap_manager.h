@@ -31,6 +31,8 @@ extern Segment* segment_map[NUM_BUCKETS];  // Deklaracija, ne inicijalizacija
 void* cleanup_segments(void* arg);
 unsigned int hash(void* address);
 void cleanup_free_segments();
+unsigned int hash_address(void* address);
+
 
 
 void print_memory_status();
