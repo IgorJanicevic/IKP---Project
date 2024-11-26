@@ -22,16 +22,15 @@ unsigned int hash(void* address) {
 
 
 void* allocate_block(size_t size) {
-
-    if(size>SEGMENT_SIZE){
-        printf("Blok koji korisnik zeli da alocira je preveliki blok!");
+    if (size > SEGMENT_SIZE) {
+        printf("Blok koji korisnik zeli da alocira je preveliki blok!\n");
         return NULL;
     }
 
     Block* new_block = (Block*)malloc(sizeof(Block));
-
     unsigned int bucket = hash(new_block);
     Segment* segment = segment_map[bucket];
+    Segment* prev_segment = NULL;
 
     // Pronadji segment sa dovoljno slobodnog prostora
     while (segment != NULL) {
@@ -41,10 +40,18 @@ void* allocate_block(size_t size) {
             new_block->size = size;
             new_block->next = segment->blocks;
             segment->blocks = new_block;
+            segment->used_size += size; 
 
-            segment->used_size += size;  // Azuriraj iskoriscen prostor u segmentu
+            // Prebaci ovaj segment na pocetak bucket-a
+            if (prev_segment != NULL) {
+                prev_segment->next = segment->next; 
+                segment->next = segment_map[bucket]; 
+                segment_map[bucket] = segment;
+            }
+
             return new_block->address;
         }
+        prev_segment = segment;
         segment = segment->next;
     }
 
@@ -53,15 +60,16 @@ void* allocate_block(size_t size) {
     new_segment->base_address = malloc(SEGMENT_SIZE);
     new_segment->used_size = size;
     new_segment->blocks = new_block;
-    new_segment->blocks->address = new_segment->blocks;
-    new_segment->blocks->size = size;
-    new_segment->blocks->next = NULL;
+    new_block->address = new_block;
+    new_block->size = size;
+    new_block->next = NULL;
     new_segment->next = segment_map[bucket];
 
-    segment_map[bucket] = new_segment;  // Dodaj segment u hashmapu
+    segment_map[bucket] = new_segment; // Dodaj novi segment na pocetak bucket-a
 
-    return new_segment->blocks->address;
+    return new_block->address;
 }
+
 
 
 void free_block(void* address) {

@@ -3,9 +3,9 @@
 
 #include <stddef.h> // Za void* i size_t
 
-#define NUM_BUCKETS 10         // Broj baketa (segmenata)
-#define SEGMENT_SIZE 1024      // Veličina svakog segmenta (1024 bajta)
-#define MAX_BLOCK_SIZE 512     // Maksimalna veličina bloka koji može stati u segment
+#define NUM_BUCKETS 10        
+#define SEGMENT_SIZE 1024     
+#define MAX_BLOCK_SIZE 512   
 #define MAX_FREE_SEGMENTS 5
 
 // Struktura koja predstavlja blok
