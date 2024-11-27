@@ -32,10 +32,11 @@ void* allocate_block(size_t size) {
     Segment* segment = segment_map[bucket];
     Segment* prev_segment = NULL;
 
+
     // Pronadji segment sa dovoljno slobodnog prostora
     while (segment != NULL) {
         if (segment->used_size + size <= SEGMENT_SIZE) {
-            // Ima dovoljno prostora u ovom segmentu, alociraj blok
+            // Ima dovoljno prostora u ovom segmentu, aloiraj blok
             new_block->address = new_block;
             new_block->size = size;
             new_block->next = segment->blocks;
@@ -72,13 +73,16 @@ void* allocate_block(size_t size) {
 
 
 
-void free_block(void* address) {
+int free_block(void* address) {
     unsigned int bucket = hash(address);
     Segment* segment = segment_map[bucket];
+    pthread_mutex_lock(&heap_lock);
 
     while (segment != NULL) {
         Block* prev = NULL;
         Block* current = segment->blocks;
+        printf(segment->base_address);
+
 
         // Trazenje bloka koji treba da se oslobodi
         while (current != NULL) {
@@ -103,15 +107,17 @@ void free_block(void* address) {
                 if(freed_segments_count>5){
                     pthread_cond_signal(&cleanup_cond);
                 }
-                return;
+                pthread_mutex_unlock(&heap_lock);
+                return 1;
             }
             prev = current;
             current = current->next;
         }
         segment = segment->next;
     }
-
+    pthread_mutex_unlock(&heap_lock);
     printf("Blok nije pronadjen!\n");
+    return 0;
 }
 
 
@@ -134,7 +140,7 @@ void print_memory_status() {
 
 void* cleanup_segments(void* arg) {
     while (1) {
-        pthread_mutex_lock(&heap_lock);
+            pthread_mutex_lock(&heap_lock);
 
         while (freed_segments_count < MAX_FREE_SEGMENTS) {
             pthread_cond_wait(&cleanup_cond, &heap_lock); 

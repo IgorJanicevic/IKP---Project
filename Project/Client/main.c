@@ -9,6 +9,9 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 8080
 
+#define ADDRESS_LENGTH 16
+
+
 // Struktura za zahtev
 typedef struct Request {
     int type;           // Tip zahteva: 1 - alokacija, 2 - dealokacija
@@ -42,6 +45,22 @@ void receive_message(SOCKET sock) {
     printf("Primljena poruka: %s\n", buffer);
 }
 
+int is_valid_hex_address(const char* input) {
+    // Provera dužine
+    if (strlen(input) != ADDRESS_LENGTH) {
+        return 0;
+    }
+
+    // Provera da li svi karakteri pripadaju heksadecimalnom opsegu
+    for (int i = 0; i < ADDRESS_LENGTH; i++) {
+        if (!isxdigit(input[i])) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 void menu(SOCKET socket){
     do{
     printf("\n\n****************************\n");
@@ -55,17 +74,32 @@ void menu(SOCKET socket){
     {
     case 1:
         printf("Unesi broj bajtova\n");
-        req.type=1;
+        req.type = 1;
         int size;
-        scanf("%d",&size);
-        req.size=size;
-        send_request(socket,&req);
+
+        if (scanf("%d", &size) != 1 || size <= 0) {
+            printf("Neispravan unos! Morate uneti pozitivan broj.\n");
+
+            while (getchar() != '\n');
+            break;
+        }
+
+        req.size = size;
+        send_request(socket, &req);
         receive_message(socket);
         break;
     case 2:
-        printf("Unesi pocetnu adresu\n");
         req.type=2;
-        scanf("%p", &req.block_id); 
+        char input[64]; 
+        printf("Unesi pocetnu adresu:\n");
+        scanf("%63s", input);
+
+        // Validacija unosa
+        if (!is_valid_hex_address(input)) {
+            printf("Neispravna adresa! Preskacem slanje zahteva.\n");
+            break; 
+        }
+        sscanf(input, "%p", &req.block_id);
         send_request(socket,&req);
         receive_message(socket);
         break;

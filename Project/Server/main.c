@@ -68,8 +68,12 @@ void process_request(Request req) {
 
         }
     } else if (req.type == 2) { // Dealokacija
-        free_block(req.block_id);
-        snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);
+        if(free_block(req.block_id)){
+            snprintf(message, sizeof(message), "Memorija sa ID %p je oslobodjena.\n", req.block_id);  
+        }else{
+             snprintf(message, sizeof(message), "Memorija sa ID %p nije pronadjena.\n", req.block_id);
+
+        }
         //printf("Memorija sa ID %p je oslobodjena.\n", req.block_id);
     }
     print_memory_status();

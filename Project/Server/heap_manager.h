@@ -36,10 +36,9 @@ unsigned int hash_address(void* address);
 
 
 void print_memory_status();
-void free_block(void* address);
+int free_block(void* address);
 void* allocate_block(size_t size);
 
-// void cleanup_heap_manager();
 
 
 #endif // HEAP_MANAGER_H
