@@ -3,35 +3,29 @@
 #include <string.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <pthread.h>  // Za visestruke niti
+#include <pthread.h>
+#include "client.h"  
 
-#pragma comment(lib, "ws2_32.lib") // Linkovanje Winsock biblioteke
+#pragma comment(lib, "ws2_32.lib") 
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 8080
+#define MAX_BLOCKS 25  
+#define NUM_CLIENT 3
 
-// Struktura za zahtev
-typedef struct Request {
-    int type;           // Tip zahteva: 1 - alokacija, 2 - dealokacija
-    size_t size;        // Velicina za alokaciju (ako je tip 1)
-    void* block_id;     // ID bloka za dealokaciju (ako je tip 2)
-} Request;
+pthread_mutex_t mutex;
 
-// Funkcija za slanje zahteva serveru
-void send_request(SOCKET sock, Request* req) {
-    if (send(sock, (char*)req, sizeof(Request), 0) == SOCKET_ERROR) {
-        printf("Neuspesno slanje zahteva. Greska: %d\n", WSAGetLastError());
-        exit(1);
-    }
-    printf("Zahtev poslat serveru.\n");
+void* allocated_blocks[MAX_BLOCKS];
+int block_count = 0;
+
+void extract_address_from_message(const char* message, void** address) {
+    sscanf(message, "Memorija alocirana: %*d bajtova\nMemorija alocirana na adresi: %p\n", address);
 }
 
-// Funkcija koja simulira korisnika koji salje nekoliko zahteva serveru
 void* simulate_user(void* arg) {
     SOCKET sock;
     struct sockaddr_in server_addr;
 
-    // Kreiranje soketa
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
         printf("Neuspesno kreiranje soketa. Greska: %d\n", WSAGetLastError());
         WSACleanup();
@@ -42,7 +36,6 @@ void* simulate_user(void* arg) {
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
 
-    // Povezivanje na server
     if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         printf("Neuspesno povezivanje sa serverom. Greska: %d\n", WSAGetLastError());
         closesocket(sock);
@@ -52,33 +45,57 @@ void* simulate_user(void* arg) {
 
     printf("Uspesno ste se povezali sa serverom.\n");
 
-    // Simulacija slanja nekoliko zahteva
     for (int i = 0; i < 10; ++i) {
         Request req;
-        req.type = (i % 2 == 0) ? 1 : 2;  // Alternira izmedju alokacije i dealokacije
-        //req.type = 1;
-        req.size = 1024 * (i + 1);         // Velicina za alokaciju
-        req.block_id = (void*)(i + 100);   // Jedinstveni ID za dealokaciju
+        req.type = (rand() % 2) + 1;  
+        req.size = rand() % 1024; 
+        req.block_id = NULL;
 
-        send_request(sock, &req);  // Slanje zahteva serveru
+        if (block_count<2){
+            req.type=1;
+        }         
+
+        pthread_mutex_lock(&mutex); 
+
+        if (req.type == 2) {
+            if (block_count > 0) {
+                req.block_id = allocated_blocks[block_count - 1]; 
+                block_count--;  
+            }
+        }
+
+        send_request(sock, &req);
+        char* response_message = receive_message(sock);  
+
+        if (req.type == 1) { 
+            void* allocated_address;
+            extract_address_from_message(response_message, &allocated_address);
+
+            if (block_count < MAX_BLOCKS) {
+                allocated_blocks[block_count++] = allocated_address;
+            } else {
+                printf("Nema više mesta za čuvanje adresa.\n");
+            }
+        }
+
+        pthread_mutex_unlock(&mutex);  
     }
 
-    // Zatvaranje soketa
     closesocket(sock);
     return NULL;
 }
 
 int main() {
     WSADATA wsa;
-    pthread_t users[5];  // 5 korisnika
+    pthread_t users[NUM_CLIENT]; 
 
-    // Inicijalizacija Winsock-a
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
         printf("Neuspesna inicijalizacija Winsock-a. Greska: %d\n", WSAGetLastError());
         return 1;
     }
 
-    // Kreiranje i pokretanje niti (korisnika)
+    pthread_mutex_init(&mutex, NULL);
+
     for (int i = 0; i < 5; ++i) {
         if (pthread_create(&users[i], NULL, simulate_user, NULL) != 0) {
             printf("Greska prilikom kreiranja niti za korisnika %d\n", i + 1);
@@ -87,12 +104,13 @@ int main() {
         }
     }
 
-    // Cekanje da sve niti završe
     for (int i = 0; i < 5; ++i) {
         pthread_join(users[i], NULL);
     }
 
-    // Ciscenjes Winsock-a
+    pthread_mutex_destroy(&mutex);
+
+    // Cleanup Winsock
     WSACleanup();
 
     return 0;

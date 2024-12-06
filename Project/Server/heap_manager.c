@@ -27,6 +27,8 @@ void* allocate_block(size_t size) {
         return NULL;
     }
 
+    pthread_mutex_lock(&heap_lock);
+
     Block* new_block = (Block*)malloc(sizeof(Block));
     unsigned int bucket = hash(new_block);
     Segment* segment = segment_map[bucket];
@@ -37,6 +39,9 @@ void* allocate_block(size_t size) {
     while (segment != NULL) {
         if (segment->used_size + size <= SEGMENT_SIZE) {
             // Ima dovoljno prostora u ovom segmentu, aloiraj blok
+            if(segment->used_size==0){
+                freed_segments_count--;
+            }
             new_block->address = new_block;
             new_block->size = size;
             new_block->next = segment->blocks;
@@ -50,6 +55,7 @@ void* allocate_block(size_t size) {
                 segment_map[bucket] = segment;
             }
 
+            pthread_mutex_unlock(&heap_lock);
             return new_block->address;
         }
         prev_segment = segment;
@@ -67,7 +73,8 @@ void* allocate_block(size_t size) {
     new_segment->next = segment_map[bucket];
 
     segment_map[bucket] = new_segment; // Dodaj novi segment na pocetak bucket-a
-
+    
+    pthread_mutex_unlock(&heap_lock);
     return new_block->address;
 }
 
@@ -81,7 +88,6 @@ int free_block(void* address) {
     while (segment != NULL) {
         Block* prev = NULL;
         Block* current = segment->blocks;
-        printf(segment->base_address);
 
 
         // Trazenje bloka koji treba da se oslobodi
@@ -100,8 +106,9 @@ int free_block(void* address) {
 
                 // Ako je segment sada prazan, povecati broja slobodnih segmenata
                 if (segment->used_size == 0) {
-                    printf("Segment postao prazan!\n");
                     freed_segments_count++;
+                    printf("Broj slobodnih segmenata je: %d\n\n",freed_segments_count);
+
                 }
 
                 if(freed_segments_count>5){
@@ -123,6 +130,7 @@ int free_block(void* address) {
 
 
 void print_memory_status() {
+    printf("\n");
     for (int i = 0; i < NUM_BUCKETS; ++i) {
         Segment* segment = segment_map[i];
         while (segment != NULL) {
@@ -133,8 +141,9 @@ void print_memory_status() {
                 block = block->next;
             }
             segment = segment->next;
-        }
+        }        
     }
+    printf("\n");
 }
 
 
@@ -166,7 +175,7 @@ void cleanup_free_segments() {
 
         while (current_segment != NULL) {
             if (current_segment->used_size == 0) {
-
+                    
                 // Uklanjanje praznog segmenta
                 if (prev_segment == NULL) {
                     segment_map[i] = current_segment->next;
