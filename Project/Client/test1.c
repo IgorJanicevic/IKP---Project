@@ -11,7 +11,7 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 8080
 #define MAX_BLOCKS 25  
-#define NUM_CLIENT 3
+#define NUM_CLIENT 5
 
 pthread_mutex_t mutex;
 
