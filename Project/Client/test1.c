@@ -11,7 +11,7 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 8080
 #define MAX_BLOCKS 25  
-#define NUM_CLIENT 5
+#define NUM_CLIENT 10
 
 pthread_mutex_t mutex;
 
@@ -96,7 +96,7 @@ int main() {
 
     pthread_mutex_init(&mutex, NULL);
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < NUM_CLIENT; ++i) {
         if (pthread_create(&users[i], NULL, simulate_user, NULL) != 0) {
             printf("Greska prilikom kreiranja niti za korisnika %d\n", i + 1);
             WSACleanup();
@@ -104,7 +104,7 @@ int main() {
         }
     }
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < NUM_CLIENT; ++i) {
         pthread_join(users[i], NULL);
     }
 
